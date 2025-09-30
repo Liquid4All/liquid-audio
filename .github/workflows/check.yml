@@ -1,0 +1,53 @@
+name: Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - review_requested
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: >
+      github.event_name != 'pull_request' ||
+      !github.event.pull_request.draft ||
+      github.event.action == 'review_requested'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --dev --frozen
+
+      - name: Run ruff check
+        run: uv run ruff check
+
+      - name: Run ruff format check
+        run: uv run ruff format --check
