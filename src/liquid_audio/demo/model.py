@@ -23,5 +23,5 @@ mimi = proc.mimi.eval()
 logging.info("Warmup tokenizer")
 with mimi.streaming(1), torch.no_grad():
     for _ in range(5):
-        x = torch.randint(2048, (1, 8, 1), device="cuda")
+        x = torch.randint(2048, (1, 8, 1), device=DEVICE)
         mimi.decode(x)
