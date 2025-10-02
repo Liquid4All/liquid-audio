@@ -11,11 +11,12 @@ logger = logging.getLogger(__name__)
 __all__ = ["lfm2_audio", "mimi", "proc"]
 
 HF_DIR = "LiquidAI/LFM2-Audio-1.5B"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 logging.info("Loading processor")
-proc = LFM2AudioProcessor.from_pretrained(HF_DIR).eval()
+proc = LFM2AudioProcessor.from_pretrained(HF_DIR, device=DEVICE).eval()
 logging.info("Loading model")
-lfm2_audio = LFM2AudioModel.from_pretrained(HF_DIR).eval()
+lfm2_audio = LFM2AudioModel.from_pretrained(HF_DIR, device=DEVICE).eval()
 logging.info("Loading tokenizer")
 mimi = proc.mimi.eval()
 
