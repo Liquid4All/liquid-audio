@@ -15,7 +15,7 @@ for Mimi. Also defines the main interface that a model must follow to be usable 
 
 from abc import abstractmethod
 from dataclasses import dataclass
-import logging
+from loguru import logger
 import typing as tp
 
 import torch
@@ -34,7 +34,6 @@ from ..modules.streaming import StreamingModule, State, StateT
 from ..utils.compile import CUDAGraphed
 
 
-logger = logging.getLogger()
 
 
 class CompressionModel(StreamingModule[StateT]):

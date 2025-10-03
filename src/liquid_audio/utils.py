@@ -3,6 +3,7 @@ from functools import cache
 from pathlib import Path
 
 import torch
+from loguru import logger
 from huggingface_hub import snapshot_download
 
 
@@ -48,6 +49,7 @@ def get_model_dir(
         cache_path = Path(snapshot_download(repo_id, revision=revision))
     else:
         if revision is not None:
+            logger.error("cannot use `revision` kwarg when given a path")
             raise RuntimeError("cannot use `revision` kwarg when given a path")
         cache_path = repo_id
 

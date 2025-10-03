@@ -17,13 +17,11 @@
 adapted from https://github.com/NVIDIA/NeMo/blob/c83adff36efaa549f7bdd26e97c01a60e9f9026b/nemo/collections/asr/parts/submodules/subsampling.py
 """
 
-import logging
+from loguru import logger
 import math
 
 import torch
 from torch import nn
-
-logger = logging.getLogger(__name__)
 
 class ConvSubsampling(torch.nn.Module):
     """Convolutional subsampling which supports VGGNet and striding approach introduced in:

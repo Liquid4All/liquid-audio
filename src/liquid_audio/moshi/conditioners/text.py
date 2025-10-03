@@ -2,7 +2,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 import hashlib
-import logging
+from loguru import logger
 import typing as tp
 
 import torch
@@ -10,9 +10,6 @@ from torch import nn
 
 
 from .base import _BaseTextConditioner, ConditionType
-
-
-logger = logging.getLogger(__name__)
 
 
 def length_to_mask(lengths: torch.Tensor, max_len: tp.Optional[int] = None) -> torch.Tensor:

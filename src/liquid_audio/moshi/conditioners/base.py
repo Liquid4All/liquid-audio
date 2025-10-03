@@ -6,7 +6,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 
-import logging
+from loguru import logger
 import typing as tp
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -17,7 +17,6 @@ from torch import nn
 
 from ..modules.transformer import create_sin_embedding
 
-logger = logging.getLogger(__name__)
 TextCondition = tp.Optional[str]  # a text condition can be a string or None (if doesn't exist)
 ConditionTensors = dict[str, 'ConditionType']
 

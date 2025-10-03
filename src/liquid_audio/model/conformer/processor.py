@@ -16,7 +16,7 @@
 Adapted from https://github.com/NVIDIA/NeMo/blob/09a962536c7a52f1964224e6e687ffb4a34fef79/nemo/collections/asr/modules/audio_preprocessing.py#L61
 """
 
-import logging
+from loguru import logger
 from abc import ABC, abstractmethod
 import random
 
@@ -60,7 +60,7 @@ class AudioPreprocessor(nn.Module, ABC):
     @torch.no_grad()
     def forward(self, input_signal, length):
         if input_signal.dtype != torch.float32:
-            logging.warning(
+            logger.warning(
                 f"AudioPreprocessor received an input signal of dtype {input_signal.dtype}, rather than torch.float32. In sweeps across multiple datasets, we have found that the preprocessor is not robust to low precision  mathematics. As such, it runs in float32. Your input will be cast to float32, but this is not necessarily enough to recovery full accuracy. For example, simply casting input_signal from torch.float32 to torch.bfloat16, then back to torch.float32 before running AudioPreprocessor causes drops in absolute WER of up to 0.1%. torch.bfloat16 simply does not have enough mantissa bits to represent enough values in the range [-1.0,+1.0] correctly.",
             )
         processed_signal, processed_length = self.get_features(input_signal.to(torch.float32), length)
@@ -305,7 +305,7 @@ class FilterbankFeatures(nn.Module):
     ):
         super().__init__()
         if stft_conv or stft_exact_pad:
-            logging.warning(
+            logger.warning(
                 "Using torch_stft is deprecated and has been removed. The values have been forcibly set to False "
                 "for FilterbankFeatures and AudioToMelSpectrogramPreprocessor. Please set exact_pad to True "
                 "as needed."
@@ -328,7 +328,7 @@ class FilterbankFeatures(nn.Module):
                 f"{self} got an invalid value for either n_window_size or "
                 f"n_window_stride. Both must be positive ints."
             )
-        logging.info(f"PADDING: {pad_to}")
+        logger.info(f"PADDING: {pad_to}")
 
         self.sample_rate = sample_rate
         self.win_length = n_window_size
@@ -339,7 +339,7 @@ class FilterbankFeatures(nn.Module):
         self.sample_rate = sample_rate
 
         if exact_pad:
-            logging.info("STFT using exact pad")
+            logger.info("STFT using exact pad")
         torch_windows = {
             'hann': torch.hann_window,
             'hamming': torch.hamming_window,
@@ -398,15 +398,15 @@ class FilterbankFeatures(nn.Module):
         # log_zero_guard_value is the the small we want to use, we support
         # an actual number, or "tiny", or "eps"
         self.log_zero_guard_type = log_zero_guard_type
-        logging.debug(f"sr: {sample_rate}")
-        logging.debug(f"n_fft: {self.n_fft}")
-        logging.debug(f"win_length: {self.win_length}")
-        logging.debug(f"hop_length: {self.hop_length}")
-        logging.debug(f"n_mels: {nfilt}")
-        logging.debug(f"fmin: {lowfreq}")
-        logging.debug(f"fmax: {highfreq}")
-        logging.debug(f"using grads: {use_grads}")
-        logging.debug(f"nb_augmentation_prob: {nb_augmentation_prob}")
+        logger.debug(f"sr: {sample_rate}")
+        logger.debug(f"n_fft: {self.n_fft}")
+        logger.debug(f"win_length: {self.win_length}")
+        logger.debug(f"hop_length: {self.hop_length}")
+        logger.debug(f"n_mels: {nfilt}")
+        logger.debug(f"fmin: {lowfreq}")
+        logger.debug(f"fmax: {highfreq}")
+        logger.debug(f"using grads: {use_grads}")
+        logger.debug(f"nb_augmentation_prob: {nb_augmentation_prob}")
 
     def stft(self, x):
         return torch.stft(

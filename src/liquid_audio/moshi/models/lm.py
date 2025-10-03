@@ -8,7 +8,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
+from loguru import logger
 import typing as tp
 from contextlib import ExitStack
 from dataclasses import dataclass, field
@@ -25,7 +25,6 @@ from ..utils.quantize import replace_linear_with_qlinear
 from ..utils.sampling import sample_token
 from .lm_utils import ScaledEmbedding, _delay_sequence, _init_layer, _undelay_sequence
 
-logger = logging.getLogger(__name__)
 
 
 def scatter_with_mask_(tensor: torch.Tensor, dim: int,

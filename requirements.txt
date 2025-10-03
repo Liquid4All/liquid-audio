@@ -1,0 +1,21 @@
+# Liquid Audio - Core Dependencies
+# Python >= 3.12 required
+
+# Deep Learning Framework
+torch>=2.8.0
+torchaudio>=2.8.0
+
+# Model & Training
+accelerate>=1.10.1
+transformers>=4.55.4
+
+# Audio Processing
+librosa>=0.11.0
+
+# Utilities
+einops>=0.8.1
+sentencepiece>=0.2.1
+loguru>=0.7.3
+
+# Optional: Flash Attention (uncomment if needed)
+# flash-attn>=2.0.0  # Install with: pip install flash-attn --no-build-isolation

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from torch import nn
 import torch
 
+from loguru import logger
 from .mha import MultiHeadAttention, RelPositionalEncoding
 from .modules import CausalConv1D, ConformerLayer
 from .subsampling import ConvSubsampling
@@ -912,7 +913,7 @@ class ConformerEncoder(nn.Module):
             att_context_size (list): The attention context size to be set.
         """
         if att_context_size not in self.att_context_size_all:
-            logging.warning(
+            logger.warning(
                 f"att_context_size={att_context_size} is not among the list of the supported "
                 f"look-aheads: {self.att_context_size_all}"
             )
@@ -970,7 +971,7 @@ class ConformerEncoder(nn.Module):
                 streaming_cfg.last_channel_cache_size = (
                     att_context_size[0] if att_context_size[0] >= 0 else max_context
                 )
-                logging.warning(
+                logger.warning(
                     f"left_chunks is not set. Setting it to default: {streaming_cfg.last_channel_cache_size}."
                 )
             else:
@@ -1209,7 +1210,7 @@ class ConformerEncoder(nn.Module):
         """
 
         if not hasattr(self.pre_encode, "change_subsampling_conv_chunking_factor"):
-            logging.info("Model pre_encoder doesn't have a change_subsampling_conv_chunking_factor method ")
+            logger.info("Model pre_encoder doesn't have a change_subsampling_conv_chunking_factor method ")
             return
 
         self.pre_encode.change_subsampling_conv_chunking_factor(
