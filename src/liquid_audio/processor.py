@@ -87,7 +87,11 @@ class LFM2AudioProcessor:
         from safetensors.torch import load_file
 
         mimi_model = moshi.models.loaders.get_mimi(None, device=self.device)
-        mimi_weights = load_file(self.mimi_weights_path, device=str(self.device))
+        
+        # safetensors doesn't support MPS device, so load to CPU first and let the model move it
+        load_device = "cpu" if self.device.type == "mps" else str(self.device)
+        
+        mimi_weights = load_file(self.mimi_weights_path, device=load_device)
         mimi_model.load_state_dict(mimi_weights, strict=True)
 
         return mimi_model
