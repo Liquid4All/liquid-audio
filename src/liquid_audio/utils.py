@@ -41,9 +41,14 @@ def get_default_device() -> str:
     """Get default device based on availability.
 
     Returns:
-        "cuda" if CUDA is available, otherwise "cpu"
+        "cuda" if CUDA is available, "mps" if MPS is available, otherwise "cpu"
     """
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
 
 
 @cache
