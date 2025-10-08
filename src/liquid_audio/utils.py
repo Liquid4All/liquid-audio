@@ -37,6 +37,15 @@ def module_exists(name: str) -> bool:
     return spec is not None
 
 
+def get_default_device() -> str:
+    """Get default device based on availability.
+
+    Returns:
+        "cuda" if CUDA is available, otherwise "cpu"
+    """
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
 @cache
 def get_model_dir(
     repo_id: str | Path,

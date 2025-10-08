@@ -91,7 +91,7 @@ def chat_response(audio: tuple[int, np.ndarray], _id: str, chat: ChatState, temp
     chat.append(
         text=torch.stack(out_text, 1),
         audio_out=torch.stack(out_audio, 1),
-        modality_flag=torch.tensor(out_modality, device="cuda"),
+        modality_flag=torch.tensor(out_modality, device=chat.device),
     )
 
     chat.end_turn()

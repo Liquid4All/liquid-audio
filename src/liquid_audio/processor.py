@@ -12,7 +12,7 @@ from transformers import AutoTokenizer, PreTrainedTokenizer
 from liquid_audio import moshi
 from liquid_audio.model.conformer.processor import AudioToMelSpectrogramPreprocessor
 from liquid_audio.moshi.models.compression import MimiModel
-from liquid_audio.utils import LFMModality, get_model_dir, mel2emb_len
+from liquid_audio.utils import LFMModality, get_default_device, get_model_dir, mel2emb_len
 
 
 @dataclass(kw_only=True)
@@ -50,8 +50,10 @@ class LFM2AudioProcessor:
         repo_id: str | Path,
         *,
         revision: str | None = None,
-        device: torch.device | str = "cuda",
+        device: torch.device | str | None = None,
     ) -> Self:
+        if device is None:
+            device = get_default_device()
         cache_path = get_model_dir(repo_id, revision=revision)
         with (cache_path / "config.json").open() as f:
             config = json.load(f)

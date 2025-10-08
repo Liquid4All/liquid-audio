@@ -18,7 +18,7 @@ from liquid_audio.model.conformer.encoder import ConformerEncoder, ConformerEnco
 from liquid_audio.model.mlp import MLP
 from liquid_audio.model.transformer import MHA, RawLMBackbone, SharedEmbedding, StandardBlock
 from liquid_audio.processor import PreprocessorConfig
-from liquid_audio.utils import LFMModality, get_model_dir, mel2emb_len, module_exists
+from liquid_audio.utils import LFMModality, get_default_device, get_model_dir, mel2emb_len, module_exists
 
 
 class LFM2_HFConfig(TypedDict):
@@ -124,8 +124,10 @@ class LFM2AudioModel(nn.Module):
         *,
         revision: str | None = None,
         dtype: torch.dtype = torch.bfloat16,
-        device: torch.device | str = "cuda",
+        device: torch.device | str | None = None,
     ) -> Self:
+        if device is None:
+            device = get_default_device()
         cache_path = get_model_dir(repo_id, revision=revision)
 
         with (cache_path / "config.json").open() as f:
