@@ -4,6 +4,9 @@ We present LFM2-Audio-1.5B, [Liquid AI](https://www.liquid.ai/)'s first end-to-e
 
 LFM2-Audio supports two generation modes, interleaved and sequential, to maximize performance and quality across different tasks. Interleaved generation outputs text and audio tokens in a fixed interleaved pattern. This approach minimizes time to first audio output and number of tokens generated, making it ideal for naturally flowing real-time speech-to-speech interactions on resource constrained devices. Sequential generation mode, where the model decides when to switch modalities via special tokens, is suitable for non-conversational tasks, such as speech-to-text (ASR) or text-to-speech (TTS).
 
+### Updates
+- [LFM2.5-Audio-1.5B](https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B) is released! This model is based on the stronger LFM2.5-1.2B base, and comes with a lightning fast LFM2 based audio detokenizer, stronger ASR, and better TTS voices. To use the new detokenizer, simply use `processor.decode`, see the examples below for more details. For the improved TTS voices, see the [TTS](#tts) section.
+
 ## Installation
 The package can be installed via `pip`
 ```bash
@@ -61,7 +64,7 @@ import torchaudio
 from liquid_audio import LFM2AudioModel, LFM2AudioProcessor, ChatState, LFMModality
 
 # Load models
-HF_REPO = "LiquidAI/LFM2-Audio-1.5B"
+HF_REPO = "LiquidAI/LFM2.5-Audio-1.5B"
 
 processor = LFM2AudioProcessor.from_pretrained(HF_REPO).eval()
 model = LFM2AudioModel.from_pretrained(HF_REPO).eval()
@@ -97,9 +100,8 @@ for t in model.generate_interleaved(**chat, max_new_tokens=512, audio_temperatur
 
 # Detokenize audio, removing the last "end-of-audio" codes
 # Mimi returns audio at 24kHz
-mimi_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
-with torch.no_grad():
-    waveform = processor.mimi.decode(mimi_codes)[0]
+audio_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
+waveform = processor.decode(audio_codes)
 torchaudio.save("answer1.wav", waveform.cpu(), 24_000)
 
 # Append newly generated tokens to chat history
@@ -128,9 +130,8 @@ for t in model.generate_interleaved(**chat, max_new_tokens=512, audio_temperatur
 # output: Sure thing! How about “Comfortable Chairs, Crafted with Care” or “Elegant Seats, Handcrafted for You”? Let me know if you’d like a few more options.
 
 # Detokenize second turn audio, removing the last "end-of-audio" codes
-mimi_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
-with torch.no_grad():
-    waveform = processor.mimi.decode(mimi_codes)[0]
+audio_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
+waveform = processor.decode(audio_codes)
 torchaudio.save("answer2.wav", waveform.cpu(), 24_000)
 ```
 
@@ -154,7 +155,7 @@ import torchaudio
 from liquid_audio import LFM2AudioModel, LFM2AudioProcessor, ChatState, LFMModality
 
 # Load models
-HF_REPO = "LiquidAI/LFM2-Audio-1.5B"
+HF_REPO = "LiquidAI/LFM2.5-Audio-1.5B"
 
 processor = LFM2AudioProcessor.from_pretrained(HF_REPO).eval()
 model = LFM2AudioModel.from_pretrained(HF_REPO).eval()
@@ -182,19 +183,25 @@ for t in model.generate_sequential(**chat, max_new_tokens=512):
 ```
 
 ### TTS
-For TTS, we also use sequential generation, with the fixed system prompt `Perform TTS.`. In addition, we can prompt the voice and a style using a natural language description.
+For TTS, we also use sequential generation. We support four pre-defined voices, which can be selected by choosing one of the four system prompts below
+```
+Perform TTS. Use the US male voice.
+Perform TTS. Use the US female voice.
+Perform TTS. Use the UK male voice.
+Perform TTS. Use the UK female voice.
+```
 
 <details>
 
 <summary>TTS Sample</summary>
 
-**Voice description**: A male speaker delivers his lines with a low-pitched voice and an animated tone. The recording is of excellent quality with almost no noise and a very close-sounding atmosphere.
+**System prompt**: Perform TTS. Use the UK male voice.
 
 **Input sentence**: What is this obsession people have with books? They put them in their houses—like they're trophies. What do you need it for after you read it?
 
 **Output audio**
 
-https://github.com/user-attachments/assets/2fa953cf-d8a8-477a-b841-c4f18d9266e6
+https://github.com/user-attachments/assets/8d57c184-b92e-4e1a-983b-d1f9d16d0d92
 
 </details>
 
@@ -204,7 +211,7 @@ import torchaudio
 from liquid_audio import LFM2AudioModel, LFM2AudioProcessor, ChatState, LFMModality
 
 # Load models
-HF_REPO = "LiquidAI/LFM2-Audio-1.5B"
+HF_REPO = "LiquidAI/LFM2.5-Audio-1.5B"
 
 processor = LFM2AudioProcessor.from_pretrained(HF_REPO).eval()
 model = LFM2AudioModel.from_pretrained(HF_REPO).eval()
@@ -213,7 +220,7 @@ model = LFM2AudioModel.from_pretrained(HF_REPO).eval()
 chat = ChatState(processor)
 
 chat.new_turn("system")
-chat.add_text("Perform TTS.\nUse the following voice: A male speaker delivers his lines with a low-pitched voice and an animated tone. The recording is of excellent quality with almost no noise and a very close-sounding atmosphere.")
+chat.add_text("Perform TTS. Use the UK male voice.")
 chat.end_turn()
 
 chat.new_turn("user")
@@ -229,9 +236,8 @@ for t in model.generate_sequential(**chat, max_new_tokens=512, audio_temperature
         audio_out.append(t)
 
 # Detokenize audio
-mimi_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
-with torch.no_grad():
-    waveform = processor.mimi.decode(mimi_codes)[0]
+audio_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
+waveform = processor.decode(audio_codes)
 torchaudio.save("tts.wav", waveform.cpu(), 24_000)
 ```
 

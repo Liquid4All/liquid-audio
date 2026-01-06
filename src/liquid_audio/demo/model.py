@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["lfm2_audio", "mimi", "proc"]
 
-HF_DIR = "LiquidAI/LFM2-Audio-1.5B"
+HF_DIR = "LiquidAI/LFM2.5-Audio-1.5B"
 
 logging.info("Loading processor")
 proc = LFM2AudioProcessor.from_pretrained(HF_DIR).eval()

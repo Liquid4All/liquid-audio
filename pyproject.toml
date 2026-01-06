@@ -1,6 +1,6 @@
 [project]
 name = "liquid-audio"
-version = "1.0.0"
+version = "1.1.0"
 description = "Liquid Audio - Speech-to-Speech audio models"
 readme = "README.md"
 authors = [
@@ -16,6 +16,7 @@ dependencies = [
     "sentencepiece>=0.2.1",
     "torch>=2.8.0",
     "torchaudio>=2.8.0",
+    "torchcodec>=0.9.1",
     "transformers>=4.55.4",
 ]
 keywords = ["Liquid AI", "LFM", "LFM2", "Audio", "Speech-to-Speech"]

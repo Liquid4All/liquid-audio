@@ -1,15 +1,15 @@
 import json
 from collections.abc import Iterator, Mapping
 from dataclasses import asdict, dataclass
-from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Self
+from typing import Any, ClassVar, Literal, Self, assert_never
 
 import torch
 import torchaudio
-from transformers import AutoTokenizer, PreTrainedTokenizer
+from transformers import AutoTokenizer, Lfm2Config, PreTrainedTokenizer
 
 from liquid_audio import moshi
+from liquid_audio.detokenizer import LFM2AudioDetokenizer
 from liquid_audio.model.conformer.processor import AudioToMelSpectrogramPreprocessor
 from liquid_audio.moshi.models.compression import MimiModel
 from liquid_audio.utils import LFMModality, get_model_dir, mel2emb_len
@@ -38,11 +38,19 @@ class LFM2AudioProcessor:
         self,
         text_tokenizer_path: str,
         audio_processor_config: PreprocessorConfig,
-        mimi_weights_path: str,
+        mimi_weights_path: str | None = None,
+        detokenizer_path: str | None = None,
+        name: str | None = None,
     ) -> None:
         self.text_tokenizer = AutoTokenizer.from_pretrained(text_tokenizer_path)
         self.audio_processor = AudioToMelSpectrogramPreprocessor(**asdict(audio_processor_config)).eval()
         self.mimi_weights_path = mimi_weights_path
+        self.detokenizer_path = detokenizer_path
+
+        self.name = name
+
+        self._mimi: MimiModel | None = None
+        self._audio_detokenizer: LFM2AudioDetokenizer | None = None
 
     @classmethod
     def from_pretrained(
@@ -56,10 +64,18 @@ class LFM2AudioProcessor:
         with (cache_path / "config.json").open() as f:
             config = json.load(f)
 
+        mimi_ckpt = cache_path / "tokenizer-e351c8d8-checkpoint125.safetensors"
+        mimi_weights_path = str(mimi_ckpt) if mimi_ckpt.exists() else None
+
+        detok_ckpt = cache_path / "audio_detokenizer"
+        detokenizer_weights_path = str(detok_ckpt) if detok_ckpt.exists() else None
+
         return cls(
             text_tokenizer_path=str(cache_path),
             audio_processor_config=PreprocessorConfig(**config["preprocessor"]),
-            mimi_weights_path=str(cache_path / "tokenizer-e351c8d8-checkpoint125.safetensors"),
+            mimi_weights_path=mimi_weights_path,
+            detokenizer_path=detokenizer_weights_path,
+            name=str(repo_id),
         ).to(device)
 
     def to(self, device: str | torch.device | None = None, dtype: torch.dtype | None = None) -> Self:
@@ -82,15 +98,83 @@ class LFM2AudioProcessor:
     def audio(self) -> AudioToMelSpectrogramPreprocessor:
         return self.audio_processor
 
-    @cached_property
+    @property
     def mimi(self) -> MimiModel:
-        from safetensors.torch import load_file
+        if self.mimi_weights_path is None:
+            if self.name is None:
+                msg = "expected `mimi_weights_path` to be specified."
+            else:
+                msg = f"model {self.name} does not provide Mimi weights, use {type(self).__name__}.decode instead."
+            raise AttributeError(msg)
 
-        mimi_model = moshi.models.loaders.get_mimi(None, device=self.device)
-        mimi_weights = load_file(self.mimi_weights_path, device=str(self.device))
-        mimi_model.load_state_dict(mimi_weights, strict=True)
+        if self._mimi is None:
+            from safetensors.torch import load_file
 
-        return mimi_model
+            mimi_model = moshi.models.loaders.get_mimi(None, device=self.device)
+            mimi_weights = load_file(self.mimi_weights_path, device=str(self.device))
+            mimi_model.load_state_dict(mimi_weights, strict=True)
+
+            self._mimi = mimi_model
+
+        return self._mimi
+
+    @property
+    def audio_detokenizer(self) -> LFM2AudioDetokenizer:
+        if self.detokenizer_path is None:
+            if self.name is None:
+                msg = "expected `detokenizer_weights_path` to be specified."
+            else:
+                msg = (
+                    f"model {self.name} does not provide LFM based audio detokenizer, use {type(self).__name__}.mimi instead."
+                )
+            raise AttributeError(msg)
+
+        if self._audio_detokenizer is None:
+            detok_config_path = Path(self.detokenizer_path) / "config.json"
+            detok_config = Lfm2Config.from_pretrained(detok_config_path)
+
+            # Make llama.cpp config compatible with transformers Lfm2Model
+            def rename_layer(
+                layer: Literal["conv", "sliding_attention", "full_attention"],
+            ) -> Literal["conv", "full_attention"]:
+                match layer:
+                    case "conv" | "full_attention":
+                        return layer
+                    case "sliding_attention":
+                        return "full_attention"
+                    case _:
+                        assert_never(layer)
+
+            assert isinstance(detok_config.layer_types, list)
+            detok_config.layer_types = [rename_layer(layer) for layer in detok_config.layer_types]  # type: ignore[arg-type]
+
+            detok = LFM2AudioDetokenizer(detok_config).eval().cuda()
+
+            detok_weights_path = Path(self.detokenizer_path) / "model.safetensors"
+            from safetensors.torch import load_file
+
+            detok_weights = load_file(detok_weights_path)
+            detok.load_state_dict(detok_weights)
+
+            detok.eval()
+
+            self._audio_detokenizer = detok
+
+        return self._audio_detokenizer
+
+    @torch.no_grad()
+    def decode(self, audio_codes: torch.Tensor) -> torch.Tensor:
+        """Detokenize audio codes into waveform with LFM2 based detokenizer
+
+        Args:
+            audio_codes: (1, 8, T) shaped integer tensor, with values in [0, 2047]
+        Returns:
+            waveform: (1, T') float tensor, 24kHz mono waveform
+        """
+        if torch.any(audio_codes >= 2048) or torch.any(audio_codes < 0):
+            raise RuntimeError("expected audio codes in range ")
+
+        return self.audio_detokenizer(audio_codes)
 
     @property
     def device(self) -> torch.device:
