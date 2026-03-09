@@ -18,6 +18,7 @@ nemo Conformer
 adapted from https://github.com/NVIDIA/NeMo/blob/c83adff36efaa549f7bdd26e97c01a60e9f9026b/nemo/collections/asr/modules/conformer_encoder.py
 """
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from torch import nn
 import torch
