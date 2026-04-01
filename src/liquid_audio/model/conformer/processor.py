@@ -149,32 +149,6 @@ class AudioToMelSpectrogramPreprocessor(AudioPreprocessor):
     def restore_from(cls, restore_path: str):
         pass
 
-    @property
-    def input_types(self):
-        """Returns definitions of module input ports."""
-        return {
-            "input_signal": NeuralType(('B', 'T'), AudioSignal(freq=self._sample_rate)),
-            "length": NeuralType(
-                tuple('B'), LengthsType()
-            ),  # Please note that length should be in samples not seconds.
-        }
-
-    @property
-    def output_types(self):
-        """Returns definitions of module output ports.
-
-        processed_signal:
-            0: AxisType(BatchTag)
-            1: AxisType(MelSpectrogramSignalTag)
-            2: AxisType(ProcessedTimeTag)
-        processed_length:
-            0: AxisType(BatchTag)
-        """
-        return {
-            "processed_signal": NeuralType(('B', 'D', 'T'), MelSpectrogramType()),
-            "processed_length": NeuralType(tuple('B'), LengthsType()),
-        }
-
     def __init__(
         self,
         sample_rate=16000,

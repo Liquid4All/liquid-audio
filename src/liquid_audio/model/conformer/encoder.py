@@ -18,7 +18,6 @@ nemo Conformer
 adapted from https://github.com/NVIDIA/NeMo/blob/c83adff36efaa549f7bdd26e97c01a60e9f9026b/nemo/collections/asr/modules/conformer_encoder.py
 """
 
-from collections import OrderedDict
 from dataclasses import dataclass
 from torch import nn
 import torch
@@ -215,60 +214,6 @@ class ConformerEncoder(nn.Module):
             all_input_example = tuple([input_example, input_example_length])
 
         return all_input_example
-
-    @property
-    def input_types(self):
-        """Returns definitions of module input ports."""
-        return OrderedDict(
-            {
-                "audio_signal": NeuralType(('B', 'D', 'T'), SpectrogramType()),
-                "length": NeuralType(tuple('B'), LengthsType()),
-                "cache_last_channel": NeuralType(('D', 'B', 'T', 'D'), ChannelType(), optional=True),
-                "cache_last_time": NeuralType(('D', 'B', 'D', 'T'), ChannelType(), optional=True),
-                "cache_last_channel_len": NeuralType(tuple('B'), LengthsType(), optional=True),
-                "bypass_pre_encode": NeuralType(tuple(), BoolType(), optional=True),
-            }
-        )
-
-    @property
-    def input_types_for_export(self):
-        """Returns definitions of module input ports."""
-        return OrderedDict(
-            {
-                "audio_signal": NeuralType(('B', 'D', 'T'), SpectrogramType()),
-                "length": NeuralType(tuple('B'), LengthsType()),
-                "cache_last_channel": NeuralType(('B', 'D', 'T', 'D'), ChannelType(), optional=True),
-                "cache_last_time": NeuralType(('B', 'D', 'D', 'T'), ChannelType(), optional=True),
-                "cache_last_channel_len": NeuralType(tuple('B'), LengthsType(), optional=True),
-                "bypass_pre_encode": NeuralType(tuple(), BoolType(), optional=True),
-            }
-        )
-
-    @property
-    def output_types(self):
-        """Returns definitions of module output ports."""
-        return OrderedDict(
-            {
-                "outputs": NeuralType(('B', 'D', 'T'), AcousticEncodedRepresentation()),
-                "encoded_lengths": NeuralType(tuple('B'), LengthsType()),
-                "cache_last_channel_next": NeuralType(('D', 'B', 'T', 'D'), ChannelType(), optional=True),
-                "cache_last_time_next": NeuralType(('D', 'B', 'D', 'T'), ChannelType(), optional=True),
-                "cache_last_channel_next_len": NeuralType(tuple('B'), LengthsType(), optional=True),
-            }
-        )
-
-    @property
-    def output_types_for_export(self):
-        """Returns definitions of module output ports."""
-        return OrderedDict(
-            {
-                "outputs": NeuralType(('B', 'D', 'T'), AcousticEncodedRepresentation()),
-                "encoded_lengths": NeuralType(tuple('B'), LengthsType()),
-                "cache_last_channel_next": NeuralType(('B', 'D', 'T', 'D'), ChannelType(), optional=True),
-                "cache_last_time_next": NeuralType(('B', 'D', 'D', 'T'), ChannelType(), optional=True),
-                "cache_last_channel_next_len": NeuralType(tuple('B'), LengthsType(), optional=True),
-            }
-        )
 
     @property
     def disabled_deployment_input_names(self):
