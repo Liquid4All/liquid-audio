@@ -241,6 +241,55 @@ waveform = processor.decode(audio_codes)
 torchaudio.save("tts.wav", waveform.cpu(), 24_000)
 ```
 
+## Finetuning
+
+To finetune on your own data, make use of the `ChatMessage` interface. This requires you to:
+
+1. map your raw dataset rows into `list[ChatMessage]`
+2. use the [`LFM2AudioChatMapper`](src/liquid_audio/data/mapper.py) to create a preprocessed dataset
+3. train a model from the preprocessed dataset with `LFM2DataLoader`
+
+First, install project dependencies:
+
+```bash
+uv sync
+```
+
+### Preprocess
+
+Before training, convert dataset into our preprocessed training format.
+
+To do that, define an iterator that yields one `list[ChatMessage]` per sample in your dataset.
+The `LFM2AudioChatMapper` handles turning those messages into model-ready features.
+
+`ChatMessage` supports:
+
+* `TextSegment(text=...)`
+* `AudioSegment(audio=...)`
+* `InterleavedSegment(text=..., audio=...)`
+
+See [examples/preprocess_jenny_tts.py](examples/preprocess_jenny_tts.py) for an example of how to preprocess the
+[Jenny TTS Dataset](https://huggingface.co/datasets/reach-vb/jenny_tts_dataset) for TTS model finetuning.
+
+Run preprocessing with:
+
+```bash
+python -m examples.preprocess_jenny_tts
+```
+
+This writes a preprocessed dataset to `data/jenny_tts/train`.
+
+### Train
+
+Training reads a preprocessed dataset.
+
+For example, to finetune a model on the [Jenny TTS Dataset](https://huggingface.co/datasets/reach-vb/jenny_tts_dataset)
+using the preprocessed dataset from before, run:
+
+```bash
+python -m examples.train
+```
+
 
 ## License
 The code in this repository and associated weights are licensed under the [LFM Open License v1.0](LICENSE).

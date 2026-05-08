@@ -13,6 +13,7 @@ from einops import rearrange
 from torch import nn
 from transformers import Lfm2Config, Lfm2Model
 
+from liquid_audio.data.types import LFM2AudioModelInput
 from liquid_audio.model.conformer.encoder import ConformerEncoder, ConformerEncoderConfig
 from liquid_audio.model.mlp import MLP
 from liquid_audio.model.transformer import MHA, RawLMBackbone, SharedEmbedding, StandardBlock
@@ -37,6 +38,8 @@ class LFM2AudioConfig:
 
     semantic_codebook_factor: float
     codebook_weight: Literal["log", "linear"]
+    text_loss_multiplier: float = 1.0
+    audio_loss_multiplier: float = 1.0
 
     interleaved_n_text: int
     interleaved_n_audio: int
@@ -52,6 +55,16 @@ class DepthformerConfig:
     layers: int
     dim: int
     tie: bool
+
+
+@dataclass(kw_only=True)
+class LFM2AudioModelOutput:
+    loss: torch.Tensor
+    audio_loss: torch.Tensor
+    text_loss: torch.Tensor
+    audio_out_tokens: torch.Tensor
+    text_tokens: torch.Tensor
+    audio_in_tokens: torch.Tensor
 
 
 class LFM2AudioModel(nn.Module):
@@ -311,7 +324,6 @@ class LFM2AudioModel(nn.Module):
 
         assert audio_in.shape[0] == 128
         assert audio_out.shape[0] >= self.codebooks
-        assert modality_flag.shape[0] == 1
 
         assert (modality_flag == LFMModality.TEXT).sum() == text.shape[1]
         assert (modality_flag == LFMModality.AUDIO_OUT).sum() == audio_out.shape[1]
@@ -331,7 +343,7 @@ class LFM2AudioModel(nn.Module):
             padded_audio_in = text_emb.new_empty((0, 8 + 1, 128))
 
         ## Encode
-        audio_enc, audio_in_len = self.conformer(padded_audio_in.mT, audio_in_lens)
+        audio_enc, audio_in_len = self.conformer(padded_audio_in.mT.to(text_emb.dtype), audio_in_lens)
 
         ## Unbatch, unpad
         len_mask = torch.arange(audio_enc.shape[-1], device=audio_enc.device).unsqueeze(0) < audio_in_len.unsqueeze(1)
@@ -344,7 +356,7 @@ class LFM2AudioModel(nn.Module):
 
         # Audio-out embeddings
         offset_audio_tokens = audio_out[: self.codebooks] + self.codebook_offsets.unsqueeze(1)
-        audio_out_emb = self.audio_embedding(offset_audio_tokens).sum(0)
+        audio_out_emb = self.audio_embedding(offset_audio_tokens).sum(0, dtype=text_emb.dtype)
         audio_out_mask = modality_flag == LFMModality.AUDIO_OUT
         assert audio_out_emb.shape[0] == audio_out_mask.sum()
 
@@ -358,6 +370,115 @@ class LFM2AudioModel(nn.Module):
         in_emb[audio_out_mask] = audio_out_emb
 
         return in_emb
+
+    def logits(
+        self,
+        batch: LFM2AudioModelInput,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute logits + labels for a training step."""
+        in_emb = self._prefill(
+            text=batch.text,
+            audio_in=batch.audio_in,
+            audio_in_lens=batch.audio_in_lens,
+            audio_out=batch.audio_out,
+            modality_flag=batch.modality_flag,
+        )
+
+        # Run LFM input
+        out_emb = self.lfm(inputs_embeds=in_emb, use_cache=False).last_hidden_state
+
+        # Prepare logits and labels
+        out_emb_shifted = out_emb[:, :-1]
+
+        text_mask = batch.modality_flag == LFMModality.TEXT
+        audio_out_mask = batch.modality_flag == LFMModality.AUDIO_OUT
+
+        # Text
+        ## embeddings
+        supervised_text_mask = torch.logical_and(text_mask, batch.supervision_mask)[:, 1:]
+        text_out_emb = out_emb_shifted[supervised_text_mask]
+        text_logits = nn.functional.linear(text_out_emb, self.lfm.embed_tokens.weight)
+
+        ## labels
+        shifted_text_mask = torch.logical_and(text_mask, batch.supervision_mask).clone()
+        shifted_text_mask[:, 0] = False
+        shifted_text_tokens = batch.text[0, shifted_text_mask[text_mask]]
+
+        # Audio out
+        ## embeddings
+        supervised_audio_mask = torch.logical_and(audio_out_mask, batch.supervision_mask)[:, 1:]
+        audio_output_embeddings = out_emb_shifted[supervised_audio_mask]
+
+        ## labels
+        shifted_audio_mask = torch.logical_and(audio_out_mask, batch.supervision_mask).clone()
+        shifted_audio_mask[:, 0] = False  # drop first timestep
+        shifted_audio_tokens = batch.audio_out[: self.codebooks, shifted_audio_mask[audio_out_mask]]
+
+        depthformer_in = rearrange(
+            self.depth_linear(audio_output_embeddings),
+            "L (C D) -> L C D",
+            C=self.codebooks,
+            D=self.depthformer_dim,
+        )
+
+        depthformer_tokens = torch.stack(
+            [emb_layer(cur_tokens) for cur_tokens, emb_layer in zip(shifted_audio_tokens, self.depth_embeddings, strict=True)],
+            1,
+        )
+        depthformer_tokens[:, -1] *= 0
+        depthformer_tokens = depthformer_tokens.roll(1, 1)
+        depthformer_in += depthformer_tokens
+
+        if depthformer_in.numel() == 0:
+            depthformer_in = rearrange(depthformer_in, "L C D -> C L D")
+
+        # Split
+        # Depthformer cannot handle batch size > 16k (= 2**14)
+        should_split = len(depthformer_in) >= 2**14
+        k = int(math.log2(len(depthformer_in))) - 14 + 1 if should_split else 0
+        num_chunks = 2**k
+        depthformer_out = torch.cat([self.depthformer(chunk_in) for chunk_in in depthformer_in.chunk(num_chunks)])
+
+        if depthformer_out.numel() == 0:
+            depthformer_out = rearrange(depthformer_out, "C L D -> L C D")
+
+        depthformer_logits = torch.stack(
+            [self.depth_embeddings[i].get_logits(depthformer_out[:, i]) for i in range(self.codebooks)]  # type: ignore[operator]
+        )
+        audio_logits = rearrange(depthformer_logits, "C L V -> (L C) V")
+        shifted_audio_tokens = rearrange(shifted_audio_tokens, "C L -> (L C)")
+
+        return text_logits, audio_logits, shifted_text_tokens, shifted_audio_tokens
+
+    def forward(
+        self,
+        batch: LFM2AudioModelInput,
+    ) -> LFM2AudioModelOutput:
+        """Compute cross-entropy loss for the batch."""
+        text_logits, audio_logits, text_labels, audio_labels = self.logits(batch)
+
+        text_loss = nn.functional.cross_entropy(text_logits, text_labels, ignore_index=-100, reduction="none")
+
+        audio_loss = nn.functional.cross_entropy(audio_logits, audio_labels, ignore_index=-100, reduction="none")
+        audio_loss = rearrange(audio_loss, "(L C) -> L C", C=self.codebooks)
+        audio_loss = (audio_loss * self.audio_loss_weights).sum(-1) / self.audio_loss_weights.sum()
+
+        text_tokens = text_loss.numel()
+        audio_tokens = audio_loss.numel()
+        weighted_tokens = self.conf.text_loss_multiplier * text_tokens + self.conf.audio_loss_multiplier * audio_tokens
+
+        loss = (self.conf.text_loss_multiplier * text_loss.sum() + self.conf.audio_loss_multiplier * audio_loss.sum()) / (
+            weighted_tokens + 1e-6
+        )
+
+        return LFM2AudioModelOutput(
+            loss=loss,
+            audio_loss=audio_loss.sum() / (audio_tokens + 1e-6),
+            text_loss=text_loss.sum() / (text_tokens + 1e-6),
+            audio_out_tokens=torch.tensor(batch.audio_out.shape[1], device=loss.device),
+            text_tokens=(batch.text[0] > 0).sum(),
+            audio_in_tokens=mel2emb_len(batch.audio_in_lens).sum(),
+        )
 
     def _sample_text_token(
         self, logits: torch.Tensor, *, temperature: float | None = None, top_k: int | None = None
