@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 
+import soundfile
 import torch
 import torchaudio
 
@@ -233,7 +234,8 @@ class LFM2AudioChatMapper:
     @staticmethod
     def _load_audio_bytes(audio: bytes) -> tuple[torch.Tensor, int]:
         with io.BytesIO(audio) as stream:
-            wav, sampling_rate = torchaudio.load(stream)
+            data, sampling_rate = soundfile.read(stream, dtype="float32", always_2d=True)
+        wav = torch.from_numpy(data.T.copy())
         if wav.shape[0] > 1:
             wav = wav.mean(dim=0, keepdim=True)
         return wav, sampling_rate
