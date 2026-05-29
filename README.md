@@ -14,6 +14,81 @@ pip install liquid-audio
 pip install "liquid-audio [demo]" # optional, to install demo dependencies
 pip install flash-attn --no-build-isolation  # optional, to use flash attention 2. Will fallback to torch SDPA if not installed
 ```
+### NVIDIA (default)
+
+The package can be installed via `pip`
+```bash
+pip install liquid-audio
+pip install "liquid-audio [demo]" # optional, to install demo dependencies
+pip install flash-attn --no-build-isolation  # optional, to use flash attention 2. Will fallback to torch SDPA if not installed
+```
+
+### AMD / ROCm (community)
+
+> **Note:** ROCm support is community-contributed and has been tested on ROCm 7.1. Flash Attention 2 is not supported on AMD GPUs; the model will automatically fall back to PyTorch SDPA.
+
+Running on AMD GPUs requires building from source with `uv` so that PyTorch and related packages are sourced from the ROCm wheel index instead of PyPI.
+
+**1. Clone the repository and enter the project folder**
+
+```bash
+git clone https://github.com/Liquid4All/liquid-audio.git
+cd liquid-audio
+```
+
+**2. Remove any existing virtual environment**
+
+```bash
+rm -rf .venv
+```
+
+**3. Add the ROCm index to `pyproject.toml`**
+
+Append the following to your `pyproject.toml`:
+
+```toml
+[tool.uv.sources]
+apex        = { index = "rocm" }
+torch       = { index = "rocm" }
+triton      = { index = "rocm" }
+torchaudio  = { index = "rocm" }
+torchvision = { index = "rocm" }
+
+[[tool.uv.index]]
+name    = "pypi"
+url     = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "rocm"
+url  = "https://download.pytorch.org/whl/nightly/rocm7.1"
+```
+
+**4. Create a fresh virtual environment**
+
+```bash
+uv venv
+```
+
+**5. Install all dependencies**
+
+```bash
+uv sync
+```
+
+To also install the demo dependencies (Gradio interface):
+
+```bash
+uv sync --extra demo
+```
+
+**6. Run the demo**
+
+```bash
+uv run liquid-audio-demo
+```
+
+The demo interface will be available at http://localhost:7860.
 
 ## Usage
 Generation is handled by two generation modes, interleaved and sequential, accessible from the methods `LFM2AudioModel.generate_interleaved` and `LFM2AudioModel.generate_sequential` respectively. Both are generators that yield `torch.Tensor`s. Text tokens are represented by tensors with 1 entry, and audio tokens are tensors with 8 entries, corresponding to 8 [Mimi](https://huggingface.co/docs/transformers/en/model_doc/mimi) codebooks.

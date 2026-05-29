@@ -21,24 +21,19 @@ dependencies = [
     "transformers>=4.55.4",
 ]
 keywords = ["Liquid AI", "LFM", "LFM2", "Audio", "Speech-to-Speech"]
-
 [project.urls]
 Homepage = "https://www.liquid.ai/"
 Repository = "https://github.com/Liquid4All/liquid-audio/"
 Issues = "https://github.com/Liquid4All/liquid-audio/issues"
-
 [project.scripts]
 liquid-audio-demo = "liquid_audio.demo.chat:main [demo]"
-
 [project.optional-dependencies]
 demo = [
     "fastrtc[vad]>=0.0.30",
 ]
-
 [build-system]
 requires = ["uv_build>=0.8.13,<0.9.0"]
 build-backend = "uv_build"
-
 [dependency-groups]
 dev = [
     "ipython>=9.4.0",
@@ -46,13 +41,40 @@ dev = [
     "ruff>=0.12.10",
 ]
 
+# ---------------------------------------------------------------------------
+# AMD / ROCm support (community)
+#
+# These entries redirect PyTorch and related packages to the ROCm wheel index.
+# They are IGNORED on a standard pip install — they only take effect when
+# using `uv sync` / `uv run` from a local clone.
+#
+# To activate: append this section to your local pyproject.toml, then run:
+#   rm -rf .venv && uv venv && uv sync
+#
+# See README.md › Installation › AMD / ROCm for the full walkthrough.
+# ---------------------------------------------------------------------------
+[tool.uv.sources]
+apex        = { index = "rocm" }
+torch       = { index = "rocm" }
+triton      = { index = "rocm" }
+torchaudio  = { index = "rocm" }
+torchvision = { index = "rocm" }
+
+[[tool.uv.index]]
+name    = "pypi"
+url     = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "rocm"
+url  = "https://download.pytorch.org/whl/nightly/rocm7.1"
+
 [tool.ruff]
 line-length = 127 # The GitHub editor is 127 chars wide
 extend-exclude = [
     "src/liquid_audio/model/conformer",
     "src/liquid_audio/moshi",
 ]
-
 [tool.ruff.lint]
 select = [
     # pycodestyle
@@ -76,7 +98,6 @@ select = [
     #ruff
     "RUF",
 ]
-
 ignore = [
     # These conflict with ruff format
     "W191",
@@ -103,7 +124,6 @@ ignore = [
     # Allow ABCs without abstract methods
     "B024",
 ]
-
 [tool.mypy]
 mypy_path = "src"
 packages = [
@@ -115,12 +135,9 @@ exclude = [
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-
 strict_equality = true
 extra_checks = true
-
 check_untyped_defs = true
-
 # TODO: check if needed
 [[tool.mypy.overrides]]
 module = [
@@ -129,7 +146,6 @@ module = [
     "datasets.*",
 ]
 ignore_missing_imports = true
-
 [[tool.mypy.overrides]]
 module = [
     'liquid_audio.moshi.*'
