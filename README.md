@@ -15,6 +15,11 @@ pip install "liquid-audio [demo]" # optional, to install demo dependencies
 pip install flash-attn --no-build-isolation  # optional, to use flash attention 2. Will fallback to torch SDPA if not installed
 ```
 
+For installation on AMD ROCm, don't forget to specify the correct `pytorch` index, e.g.
+```bash
+pip install liquid-audio --index-url https://download.pytorch.org/whl/rocm7.2
+```
+
 ## Usage
 Generation is handled by two generation modes, interleaved and sequential, accessible from the methods `LFM2AudioModel.generate_interleaved` and `LFM2AudioModel.generate_sequential` respectively. Both are generators that yield `torch.Tensor`s. Text tokens are represented by tensors with 1 entry, and audio tokens are tensors with 8 entries, corresponding to 8 [Mimi](https://huggingface.co/docs/transformers/en/model_doc/mimi) codebooks.
 
@@ -60,7 +65,7 @@ https://github.com/user-attachments/assets/d0d054b2-6d1d-49fb-94df-4aa0b6641990
 
 ```python
 import torch
-import torchaudio
+import soundfile as sf
 from liquid_audio import LFM2AudioModel, LFM2AudioProcessor, ChatState, LFMModality
 
 # Load models
@@ -77,7 +82,8 @@ chat.add_text("Respond with interleaved text and audio.")
 chat.end_turn()
 
 chat.new_turn("user")
-wav, sampling_rate = torchaudio.load("assets/question.wav")
+wav, sampling_rate = sf.read("assets/question.wav", dtype="float32")
+wav = torch.from_numpy(wav).unsqueeze(0)
 chat.add_audio(wav, sampling_rate)
 chat.end_turn()
 
@@ -102,7 +108,7 @@ for t in model.generate_interleaved(**chat, max_new_tokens=512, audio_temperatur
 # Mimi returns audio at 24kHz
 audio_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
 waveform = processor.decode(audio_codes)
-torchaudio.save("answer1.wav", waveform.cpu(), 24_000)
+sf.write("answer1.wav", waveform.cpu()[0], 24_000)
 
 # Append newly generated tokens to chat history
 chat.append(
@@ -132,7 +138,7 @@ for t in model.generate_interleaved(**chat, max_new_tokens=512, audio_temperatur
 # Detokenize second turn audio, removing the last "end-of-audio" codes
 audio_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
 waveform = processor.decode(audio_codes)
-torchaudio.save("answer2.wav", waveform.cpu(), 24_000)
+sf.write("answer2.wav", waveform.cpu()[0], 24_000)
 ```
 
 
@@ -151,7 +157,7 @@ https://github.com/user-attachments/assets/b3cc017f-363d-49f3-8e7d-f6db9556900e
 
 ```python
 import torch
-import torchaudio
+import soundfile as sf
 from liquid_audio import LFM2AudioModel, LFM2AudioProcessor, ChatState, LFMModality
 
 # Load models
@@ -168,7 +174,8 @@ chat.add_text("Perform ASR.")
 chat.end_turn()
 
 chat.new_turn("user")
-wav, sampling_rate = torchaudio.load("assets/asr.wav")
+wav, sampling_rate = sf.read("assets/asr.wav", dtype="float32")
+wav = torch.from_numpy(wav).unsqueeze(0)
 chat.add_audio(wav, sampling_rate)
 chat.end_turn()
 
@@ -207,7 +214,7 @@ https://github.com/user-attachments/assets/8d57c184-b92e-4e1a-983b-d1f9d16d0d92
 
 ```python
 import torch
-import torchaudio
+import soundfile as sf
 from liquid_audio import LFM2AudioModel, LFM2AudioProcessor, ChatState, LFMModality
 
 # Load models
@@ -238,7 +245,7 @@ for t in model.generate_sequential(**chat, max_new_tokens=512, audio_temperature
 # Detokenize audio
 audio_codes = torch.stack(audio_out[:-1], 1).unsqueeze(0)
 waveform = processor.decode(audio_codes)
-torchaudio.save("tts.wav", waveform.cpu(), 24_000)
+sf.write("tts.wav", waveform.cpu()[0], 24_000)
 ```
 
 ## Finetuning
@@ -248,12 +255,6 @@ To finetune on your own data, make use of the `ChatMessage` interface. This requ
 1. map your raw dataset rows into `list[ChatMessage]`
 2. use the [`LFM2AudioChatMapper`](src/liquid_audio/data/mapper.py) to create a preprocessed dataset
 3. train a model from the preprocessed dataset with `LFM2DataLoader`
-
-First, install project dependencies:
-
-```bash
-uv sync
-```
 
 ### Preprocess
 
@@ -274,7 +275,7 @@ See [examples/preprocess_jenny_tts.py](examples/preprocess_jenny_tts.py) for an 
 Run preprocessing with:
 
 ```bash
-python -m examples.preprocess_jenny_tts
+python examples/preprocess_jenny_tts
 ```
 
 This writes a preprocessed dataset to `data/jenny_tts/train`.
@@ -287,7 +288,7 @@ For example, to finetune a model on the [Jenny TTS Dataset](https://huggingface.
 using the preprocessed dataset from before, run:
 
 ```bash
-python -m examples.train
+python examples/train
 ```
 
 
