@@ -5,6 +5,7 @@ We present LFM2-Audio-1.5B, [Liquid AI](https://www.liquid.ai/)'s first end-to-e
 LFM2-Audio supports two generation modes, interleaved and sequential, to maximize performance and quality across different tasks. Interleaved generation outputs text and audio tokens in a fixed interleaved pattern. This approach minimizes time to first audio output and number of tokens generated, making it ideal for naturally flowing real-time speech-to-speech interactions on resource constrained devices. Sequential generation mode, where the model decides when to switch modalities via special tokens, is suitable for non-conversational tasks, such as speech-to-text (ASR) or text-to-speech (TTS).
 
 ### Updates
+- [Finetuning](#finetuning) is now supported in both interleaved and sequential generation modes. Version 1.2.0 introduces data preparation tools and a lightweight trainer, enabling users to fine-tune models for a broad range of tasks, from ASR and TTS to function calling and end-to-end speech-to-speech chat.
 - [LFM2.5-Audio-1.5B](https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B) is released! This model is based on the stronger LFM2.5-1.2B base, and comes with a lightning fast LFM2 based audio detokenizer, stronger ASR, and better TTS voices. To use the new detokenizer, simply use `processor.decode`, see the examples below for more details. For the improved TTS voices, see the [TTS](#tts) section.
 
 ## Installation
@@ -15,9 +16,9 @@ pip install "liquid-audio [demo]" # optional, to install demo dependencies
 pip install flash-attn --no-build-isolation  # optional, to use flash attention 2. Will fallback to torch SDPA if not installed
 ```
 
-For installation on AMD ROCm, don't forget to specify the correct `pytorch` index, e.g.
+For installation on AMD ROCm, don't forget to specify the correct `pytorch` version and index, e.g.
 ```bash
-pip install liquid-audio --index-url https://download.pytorch.org/whl/rocm7.2
+pip install liquid-audio torch==2.12.0+rocm7.2 --extra-index-url https://download.pytorch.org/whl/rocm7.2
 ```
 
 ## Usage
@@ -275,7 +276,7 @@ See [examples/preprocess_jenny_tts.py](examples/preprocess_jenny_tts.py) for an 
 Run preprocessing with:
 
 ```bash
-python examples/preprocess_jenny_tts
+python examples/preprocess_jenny_tts.py
 ```
 
 This writes a preprocessed dataset to `data/jenny_tts/train`.
@@ -288,7 +289,7 @@ For example, to finetune a model on the [Jenny TTS Dataset](https://huggingface.
 using the preprocessed dataset from before, run:
 
 ```bash
-python examples/train
+python examples/train.py
 ```
 
 
