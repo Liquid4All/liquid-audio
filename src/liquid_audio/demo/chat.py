@@ -122,7 +122,7 @@ with gr.Blocks() as demo:
     webrtc.stream(
         ReplyOnPause(
             chat_response,  # type: ignore[arg-type]
-            input_sample_rate=24_000,
+            input_sample_rate=48_000,
             output_sample_rate=24_000,
             can_interrupt=False,
         ),
