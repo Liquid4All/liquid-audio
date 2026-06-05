@@ -8,7 +8,7 @@ from fastrtc import AdditionalOutputs, ReplyOnPause, WebRTC
 
 from liquid_audio import ChatState, LFMModality
 
-from .model import lfm2_audio, mimi, proc
+from .model import device, lfm2_audio, mimi, proc
 
 
 def chat_producer(
@@ -91,7 +91,7 @@ def chat_response(audio: tuple[int, np.ndarray], _id: str, chat: ChatState, temp
     chat.append(
         text=torch.stack(out_text, 1),
         audio_out=torch.stack(out_audio, 1),
-        modality_flag=torch.tensor(out_modality, device="cuda"),
+        modality_flag=torch.tensor(out_modality, device=device),
     )
 
     chat.end_turn()
@@ -122,7 +122,7 @@ with gr.Blocks() as demo:
     webrtc.stream(
         ReplyOnPause(
             chat_response,  # type: ignore[arg-type]
-            input_sample_rate=24_000,
+            input_sample_rate=48_000,
             output_sample_rate=24_000,
             can_interrupt=False,
         ),
