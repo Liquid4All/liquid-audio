@@ -36,6 +36,11 @@ pip install "liquid-audio [demo]"
 ```
 To launch the demo, use the command `liquid-audio-demo` on the terminal. The demo interface will be available via the url http://localhost:7860.
 
+By default the demo loads [LiquidAI/LFM2.5-Audio-1.5B](https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B). To run it with another checkpoint, e.g. the Japanese model [LiquidAI/LFM2.5-Audio-1.5B-JP](https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B-JP), set the `LFM_HF_REPO` environment variable:
+```bash
+LFM_HF_REPO=LiquidAI/LFM2.5-Audio-1.5B-JP liquid-audio-demo
+```
+
 ### Multi-turn, multi-modal chat
 For multi-turn chat with text and audio output, we use interleaved generation. The system prompt should be set to `Respond with interleaved text and audio.`. Here we use audio as the first user turn, and text as the second one
 
