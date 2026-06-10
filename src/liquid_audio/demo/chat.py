@@ -18,6 +18,11 @@ def chat_producer(
     topk: int | None,
 ):
     print(f"Starting generation with state {chat}.")
+    if mimi.is_streaming:
+        # A previous turn that was interrupted (e.g. by fastrtc's frame
+        # processing timeout) can leave the streaming context open, which
+        # would make every subsequent turn fail with "is already streaming!".
+        mimi.reset_streaming()
     with torch.no_grad(), mimi.streaming(1):
         for t in lfm2_audio.generate_interleaved(
             **chat,
