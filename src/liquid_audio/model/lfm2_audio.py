@@ -339,18 +339,17 @@ class LFM2AudioModel(nn.Module):
         audio_in_list = audio_in.mT.split(audio_in_lens.tolist())
         if audio_in_list:
             padded_audio_in = nn.utils.rnn.pad_sequence(audio_in_list, batch_first=True)
+            ## Encode
+            audio_enc, audio_in_len = self.conformer(padded_audio_in.mT.to(text_emb.dtype), audio_in_lens)
+            ## Unbatch, unpad
+            len_mask = torch.arange(audio_enc.shape[-1], device=audio_enc.device).unsqueeze(0) < audio_in_len.unsqueeze(1)
+            audio_enc_concatenated = audio_enc.mT[len_mask]
+            ## Adapt
+            audio_in_emb = self.audio_adapter(audio_enc_concatenated)
         else:
-            padded_audio_in = text_emb.new_empty((0, 8 + 1, 128))
-
-        ## Encode
-        audio_enc, audio_in_len = self.conformer(padded_audio_in.mT.to(text_emb.dtype), audio_in_lens)
-
-        ## Unbatch, unpad
-        len_mask = torch.arange(audio_enc.shape[-1], device=audio_enc.device).unsqueeze(0) < audio_in_len.unsqueeze(1)
-        audio_enc_concatenated = audio_enc.mT[len_mask]
-
-        ## Adapt
-        audio_in_emb = self.audio_adapter(audio_enc_concatenated)
+            # Text-only/tool/proactive prefixes contain no speech segments. The
+            # inference encoder need not run an empty batch (SDPA cannot reshape it).
+            audio_in_emb = text_emb.new_empty((0, self.lfm.config.hidden_size))
         audio_in_mask = modality_flag == LFMModality.AUDIO_IN
         assert audio_in_emb.shape[0] == audio_in_mask.sum()
 
