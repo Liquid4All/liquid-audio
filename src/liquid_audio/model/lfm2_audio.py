@@ -168,6 +168,27 @@ class LFM2AudioModel(nn.Module):
 
         return model
 
+    def configure_omni_reference_encoder(self) -> None:
+        """Match the native Omni encoder's SDPA and CPU-created positional cache.
+
+        Native Omni constructs the encoder on CPU in float32 before moving it
+        to the inference device/dtype. Direct GPU construction rounds the fixed
+        sinusoidal cache differently, which can change autoregressive audio
+        codes. No learned weights are modified. This is an explicit opt-in.
+        """
+        encoder = self.conformer
+        if encoder.self_attention_model != "rel_pos":
+            raise ValueError("Omni reference alignment requires relative positional encoding")
+        parameter = next(encoder.parameters())
+        length = encoder.max_audio_length
+        positions = torch.arange(length - 1, -length, -1, dtype=torch.float32, device="cpu").unsqueeze(1)
+        encoder.pos_enc.create_pe(positions=positions, dtype=torch.float32)
+        encoder.pos_enc.pe = encoder.pos_enc.pe.to(device=parameter.device, dtype=parameter.dtype)
+        for module in encoder.modules():
+            if hasattr(module, "use_pytorch_sdpa"):
+                module.use_pytorch_sdpa = True
+        encoder.sync_max_audio_length = False
+
     @torch.no_grad()
     def generate_sequential(
         self,
