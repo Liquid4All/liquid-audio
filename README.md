@@ -293,6 +293,14 @@ using the preprocessed dataset from before, run:
 python examples/train.py
 ```
 
+The finetuned model is saved to `tmp/final`, and loads like the base model. Finetuning does not change the processor,
+so load that from the base model:
+
+```python
+processor = LFM2AudioProcessor.from_pretrained("LiquidAI/LFM2.5-Audio-1.5B").eval()
+model = LFM2AudioModel.from_pretrained("tmp/final").eval()
+```
+
 
 ## License
 The code in this repository and associated weights are licensed under the [LFM Open License v1.0](LICENSE).

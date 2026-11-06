@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import time
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ from torch.utils.data import DataLoader
 from liquid_audio import LFM2AudioModel
 from liquid_audio.data.dataloader import lfm2_collator
 from liquid_audio.model.lfm2_audio import LFM2AudioModelOutput
+from liquid_audio.utils import get_model_dir
 
 if TYPE_CHECKING:
     from liquid_audio.data.dataloader import LFM2DataLoader
@@ -58,6 +60,7 @@ class Trainer:
         )
 
         # Model
+        self.model_dir = get_model_dir(model_id)
         self.model = LFM2AudioModel.from_pretrained(
             model_id,
             device=self.accelerator.device,
@@ -163,6 +166,9 @@ class Trainer:
             max_shard_size="5GB",
             safe_serialization=True,
         )
+        if self.accelerator.is_main_process:
+            # `LFM2AudioModel.from_pretrained` needs the model config next to the weights
+            shutil.copy(self.model_dir / "config.json", f"{self.output_dir}/final/config.json")
         self.accelerator.end_training()
         total = int(time.monotonic() - self.time)
         mins, secs = divmod(total, 60)
