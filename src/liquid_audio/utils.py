@@ -44,11 +44,11 @@ def get_model_dir(
     revision: str | None = None,
 ) -> Path:
     cache_path: Path
-    if isinstance(repo_id, str):
+    if isinstance(repo_id, str) and not Path(repo_id).is_dir():
         cache_path = Path(snapshot_download(repo_id, revision=revision))
     else:
         if revision is not None:
             raise RuntimeError("cannot use `revision` kwarg when given a path")
-        cache_path = repo_id
+        cache_path = Path(repo_id)
 
     return cache_path
